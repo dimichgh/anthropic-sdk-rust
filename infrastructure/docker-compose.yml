@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # Alexandrie - Rust crates registry
+  registry:
+    image: crates/alexandrie:latest
+    container_name: anthropic-rust-registry
+    ports:
+      - "3000:3000"
+    environment:
+      - ALEXANDRIE_DATABASE_URL=postgresql://registry:registry_pass@postgres:5432/alexandrie
+      - ALEXANDRIE_STORAGE_PATH=/opt/alexandrie/storage
+      - ALEXANDRIE_INDEX_PATH=/opt/alexandrie/index
+      - ALEXANDRIE_FRONTEND_ENABLED=true
+      - ALEXANDRIE_FRONTEND_TITLE=Anthropic Rust Crates Registry
+      - ALEXANDRIE_FRONTEND_DESCRIPTION=Private Rust crates for Anthropic projects
+      - ALEXANDRIE_AUTH_REQUIRED=true
+      - ALEXANDRIE_BASE_URL=http://localhost:3000
+    volumes:
+      - registry_storage:/opt/alexandrie/storage
+      - registry_index:/opt/alexandrie/index
+      - ./config/alexandrie.toml:/opt/alexandrie/alexandrie.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+  # PostgreSQL database for registry
+  postgres:
+    image: postgres:15-alpine
+    container_name: anthropic-rust-postgres
+    environment:
+      - POSTGRES_DB=alexandrie
+      - POSTGRES_USER=registry
+      - POSTGRES_PASSWORD=registry_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry -d alexandrie"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+  # Documentation hosting server
+  docs:
+    build:
+      context: ./docs-server
+      dockerfile: Dockerfile
+    container_name: anthropic-rust-docs
+    ports:
+      - "8080:80"
+    environment:
+      - DOCS_TITLE=Anthropic Rust SDK Documentation
+      - DOCS_DESCRIPTION=Comprehensive documentation for Anthropic Rust SDKs
+      - SEARCH_ENABLED=true
+      - ANALYTICS_ENABLED=false
+    volumes:
+      - docs_storage:/usr/share/nginx/html/docs
+      - ./docs-server/templates:/opt/templates:ro
+      - ./docs-server/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+  # Documentation builder service
+  docs-builder:
+    build:
+      context: ./docs-builder
+      dockerfile: Dockerfile
+    container_name: anthropic-rust-docs-builder
+    environment:
+      - CARGO_HOME=/opt/cargo
+      - RUSTUP_HOME=/opt/rustup
+      - DOCS_OUTPUT_PATH=/output
+    volumes:
+      - docs_storage:/output
+      - cargo_cache:/opt/cargo
+      - rustup_cache:/opt/rustup
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: "no"
+    networks:
+      - anthropic-net
+
+  # Reverse proxy and load balancer
+  proxy:
+    image: nginx:alpine
+    container_name: anthropic-rust-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./proxy/ssl:/etc/nginx/ssl:ro
+      - ./proxy/static:/usr/share/nginx/html:ro
+    depends_on:
+      - registry
+      - docs
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: anthropic-rust-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+  # Monitoring and metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: anthropic-rust-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: anthropic-rust-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    networks:
+      - anthropic-net
+
+volumes:
+  registry_storage:
+    driver: local
+  registry_index:
+    driver: local
+  postgres_data:
+    driver: local
+  docs_storage:
+    driver: local
+  cargo_cache:
+    driver: local
+  rustup_cache:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  anthropic-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

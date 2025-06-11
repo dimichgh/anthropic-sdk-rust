@@ -1,0 +1,94 @@
+# Alexandrie Configuration - Anthropic Rust Crates Registry
+
+[general]
+# Registry metadata
+name = "Anthropic Rust Crates Registry"
+description = "Private Rust crates registry for Anthropic SDK and internal Rust projects"
+base_url = "http://localhost:3000"
+bind_address = "0.0.0.0:3000"
+
+# Authentication settings
+auth_required = true
+registration_allowed = false  # Invitation-only registration
+
+# Storage configuration
+[storage]
+type = "disk"
+path = "/opt/alexandrie/storage"
+
+# Database configuration
+[database]
+url = "postgresql://registry:registry_pass@postgres:5432/alexandrie"
+max_conns = 10
+min_conns = 1
+
+# Git index configuration
+[index]
+type = "git"
+path = "/opt/alexandrie/index"
+# Git repository URL for the index
+url = "https://github.com/your-org/crates-index.git"
+# Branch to use
+branch = "master"
+# Whether to allow pushing to the index
+read_only = false
+
+# Frontend configuration
+[frontend]
+enabled = true
+title = "Anthropic Rust Crates Registry"
+description = "Private Rust crates for Anthropic SDK and internal projects"
+navbar_title = "Anthropic Rust Crates"
+# Custom CSS and branding
+custom_css = "/opt/templates/custom.css"
+logo_url = "/static/anthropic-logo.png"
+
+# API configuration
+[api]
+# Rate limiting
+rate_limit = 1000  # requests per minute per IP
+# Maximum crate size (in bytes)
+max_crate_size = 104857600  # 100MB
+
+# Logging configuration
+[logging]
+level = "info"
+format = "json"
+# Log file path
+file = "/var/log/alexandrie/alexandrie.log"
+
+# Security settings
+[security]
+# CORS settings
+cors_allow_origins = ["http://localhost", "https://your-domain.com"]
+# CSRF protection
+csrf_protection = true
+# API key settings
+api_key_length = 32
+api_key_prefix = "anthropic-rust-"
+
+# Email configuration (for notifications)
+[email]
+enabled = false
+smtp_host = "smtp.your-domain.com"
+smtp_port = 587
+smtp_username = "registry@your-domain.com"
+smtp_password = "your-smtp-password"
+from_address = "Anthropic Rust Registry <registry@your-domain.com>"
+
+# Backup configuration
+[backup]
+enabled = true
+# S3-compatible storage for backups
+s3_bucket = "anthropic-rust-registry-backups"
+s3_region = "us-east-1"
+# Backup schedule (cron format)
+schedule = "0 2 * * *"  # Daily at 2 AM
+
+# Metrics and monitoring
+[metrics]
+enabled = true
+prometheus_endpoint = "/metrics"
+# Custom metrics
+track_downloads = true
+track_api_usage = true 
