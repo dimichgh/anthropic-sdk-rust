@@ -45,14 +45,15 @@ async fn test_anthropic_auth() -> Result<(), Box<dyn std::error::Error>> {
             let client = Anthropic::from_env()?;
             
             let response = client.messages()
-                
-                .max_tokens(50)
-                .user("Hello from standard Anthropic API!")
-                .send()
+                .create(
+                    MessageCreateBuilder::new("claude-3-5-sonnet-latest", 50)
+                        .user("Hello from standard Anthropic API!")
+                        .build()
+                )
                 .await?;
             
             println!("   ✅ Standard Anthropic API works!");
-            println!("   📝 Response: {}", response.content.first().unwrap().text.as_ref().unwrap());
+            println!("   📝 Response: {}", extract_text_from_content(&response.content));
         }
         Err(_) => {
             println!("   ⚠️  ANTHROPIC_API_KEY not set, skipping standard API test");
@@ -80,14 +81,15 @@ async fn test_custom_auth() -> Result<(), Box<dyn std::error::Error>> {
     let client = Anthropic::with_config(config)?;
     
     let response = client.messages()
-        
-        .max_tokens(50)
-        .user("Hello from Custom Gateway!")
-        .send()
+        .create(
+            MessageCreateBuilder::new("claude-3-5-sonnet-latest", 50)
+                .user("Hello from Custom Gateway!")
+                .build()
+        )
         .await?;
     
     println!("   ✅ Custom Gateway (Method 1) works!");
-    println!("   📝 Response: {}", response.content.first().unwrap().text.as_ref().unwrap());
+    println!("   📝 Response: {}", extract_text_from_content(&response.content));
     
     // Method 2: Using for_custom_gateway convenience method (if available)
     let custom_config = ClientConfig::new(api_key)
@@ -96,14 +98,15 @@ async fn test_custom_auth() -> Result<(), Box<dyn std::error::Error>> {
     let custom_client = Anthropic::with_config(custom_config)?;
     
     let response2 = custom_client.messages()
-        
-        .max_tokens(50)
-        .user("Hello from Custom convenience config!")
-        .send()
+        .create(
+            MessageCreateBuilder::new("claude-3-5-sonnet-latest", 50)
+                .user("Hello from Custom convenience config!")
+                .build()
+        )
         .await?;
     
     println!("   ✅ Custom Gateway (Method 2) works!");
-    println!("   📝 Response: {}", response2.content.first().unwrap().text.as_ref().unwrap());
+    println!("   📝 Response: {}", extract_text_from_content(&response2.content));
     
     Ok(())
 }

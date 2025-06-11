@@ -137,7 +137,7 @@ fn show_configuration_examples() {
 
 /// Test authentication with the Anthropic Rust SDK
 async fn test_with_anthropic_sdk() -> Result<(), Box<dyn std::error::Error>> {
-    use anthropic_rs::{Anthropic, ClientConfig};
+    use anthropic_sdk::{Anthropic, ClientConfig};
     
     let api_key = env::var("CUSTOM_BEARER_TOKEN")
         .or_else(|_| env::var("ANTHROPIC_API_KEY"))
